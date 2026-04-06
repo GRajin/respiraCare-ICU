@@ -98,7 +98,7 @@ class PatientStateMachine:
         # --- VAP prevention ---
         self.vap_risk = vap_risk
         self.vap_bundle_compliance_hours = 0
-        self.hours_since_last_bundle = 0
+        self.hours_since_last_bundle = 1
         self.pending_vap_events: List[PendingVAPEvent] = []
         self.has_vap = (state == PatientState.INTUBATED_WITH_VAP)
 
@@ -255,6 +255,13 @@ class PatientStateMachine:
         if self.has_vap:
             return None
 
+        # hours_since_last_bundle == 0 means enforce_vap_bundle ran this step.
+        # Do not accrue risk — bundle was done. Increment counter and exit.
+        if self.hours_since_last_bundle == 0:
+            self.hours_since_last_bundle += 1
+            return None
+
+        # Bundle was missed this hour — accrue risk and increment counter
         self.vap_risk = min(1.0, self.vap_risk + config.VAP_RISK_PER_MISSED_HOUR)
         self.hours_since_last_bundle += 1
 
@@ -532,12 +539,14 @@ class PatientStateMachine:
 
         # --- VAP risk accrual (only for ventilated patients) ---
         if self.support_level == SupportLevel.FULL_VENTILATOR:
-            # Only accrue if bundle was NOT enforced this hour
-            # (hours_since_last_bundle > 0 means bundle was not done this hour)
-            if self.hours_since_last_bundle > 0:
-                pending = self._accrue_vap_risk()
-                if pending:
-                    events.append(f"{self.patient_id}:vap_threshold_crossed")
+            # _accrue_vap_risk() handles eligibility check internally.
+            # It increments hours_since_last_bundle each call.
+            # When enforce_vap_bundle runs, it resets hours_since_last_bundle
+            # to 0 BEFORE advance_hour is called — so _accrue_vap_risk sees
+            # hours_since_last_bundle=0 and correctly skips risk accrual.
+            pending = self._accrue_vap_risk()
+            if pending:
+                events.append(f"{self.patient_id}:vap_threshold_crossed")
 
         # --- Recompute derived risk scores ---
         self.reintubation_risk = self._compute_reintubation_risk()
