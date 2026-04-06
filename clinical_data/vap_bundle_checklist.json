@@ -1,0 +1,15 @@
+{
+  "description": "VAP prevention bundle — steps tracked per patient per shift hour",
+  "bundle_steps": [
+    {"id": "hob_elevation",      "name": "Head-of-bed elevation 30–45°",  "frequency_hours": 1},
+    {"id": "oral_care",          "name": "Oral care every 4 hours",       "frequency_hours": 4},
+    {"id": "sedation_vacation",  "name": "Daily sedation vacation",       "frequency_hours": 24},
+    {"id": "sbt_assessment",     "name": "Daily SBT assessment",          "frequency_hours": 24},
+    {"id": "circuit_change",     "name": "Circuit tubing on schedule",    "frequency_hours": 48},
+    {"id": "subglottic_suction", "name": "Subglottic suctioning",        "frequency_hours": 4}
+  ],
+  "vap_risk_per_missed_hour": 0.03,
+  "vap_trigger_threshold": 0.70,
+  "vap_onset_delay_hours": 2,
+  "hours_at_risk_before_eligible": 48
+}

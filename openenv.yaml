@@ -1,0 +1,152 @@
+# openenv.yaml
+# RespiraCare-ICU — OpenEnv environment specification
+# This file is read by `openenv validate` during automated judging.
+
+name: RespiraCare-ICU
+version: "1.0.0"
+description: >
+  A ward-level ICU simulation where the agent plays a Charge Respiratory Therapist
+  managing 12 simultaneously ventilated patients across a 12-hour shift.
+  Models five co-existing real-world problems: respiratory equipment fleet management,
+  alarm fatigue, VAP prevention with delayed consequences, ethical triage under
+  absolute scarcity, and shift handover with information degradation.
+
+author: "Rajin Gangadharan"
+license: MIT
+domain: healthcare
+tags:
+  - ICU
+  - respiratory-therapy
+  - resource-allocation
+  - medical-decision-making
+  - alarm-fatigue
+  - ethical-triage
+
+hf_space_url: "https://huggingface.co/spaces/RajinG2402/respiraCare-ICU"
+hf_space_sdk: docker
+
+# Environment variables required to run inference.py
+environment_variables:
+  - name: API_BASE_URL
+    description: Base URL for the OpenAI-compatible LLM API endpoint
+    required: true
+  - name: MODEL_NAME
+    description: Name of the model to use for inference
+    required: true
+  - name: HF_TOKEN
+    description: HuggingFace token used as API key for LLM calls
+    required: true
+
+# Hardware requirements
+compute:
+  min_vcpu: 2
+  min_ram_gb: 8
+  gpu_required: false
+
+# The three tasks — increasing difficulty
+tasks:
+  - id: 1
+    name: "Readiness Triage"
+    difficulty: easy
+    description: >
+      Given 5 ventilated patients with complete vital sign data, classify each
+      patient into exactly one of three readiness categories: READY_FOR_SBT,
+      READY_TO_EXTUBATE, or NOT_READY. Graded against published ACCP weaning
+      readiness criteria. Single-step episode.
+    max_steps: 1
+    expected_score_range:
+      min: 0.65
+      max: 0.90
+    grader: deterministic
+    grader_source: "ACCP weaning readiness criteria (published clinical guidelines)"
+
+  - id: 2
+    name: "Shift Resource Optimization"
+    difficulty: medium
+    description: >
+      Manage a 10-patient ICU ward over 6 hours with incoming trauma patients
+      arriving at hour 3. Must balance extubation decisions, alarm filtering,
+      VAP bundle compliance, and equipment availability. Composite grader with
+      4 weighted metrics.
+    max_steps: 6
+    expected_score_range:
+      min: 0.35
+      max: 0.65
+    grader: composite
+    grader_source: "4-metric composite: equipment availability, reintubation rate, VAP compliance, alarm accuracy"
+
+  - id: 3
+    name: "Full Shift Crisis Management"
+    difficulty: hard
+    description: >
+      Manage a full 12-patient ward across a complete 12-hour shift with 7
+      scripted crisis events injected at predetermined hours: mass casualty
+      event, ventilator malfunction, shift handover, BiPAP crash, VAP outbreak,
+      ethical triage decision, and RT staffing loss. All five problem dimensions
+      active simultaneously.
+    max_steps: 12
+    expected_score_range:
+      min: 0.10
+      max: 0.35
+    grader: composite
+    grader_source: "5-signal composite: mortality proxy, equipment utilization, VAP incidence, reintubation quality, crisis response speed"
+
+# Action space
+action_space:
+  type: discrete
+  description: "One action per patient per step"
+  actions:
+    - attempt_sbt
+    - extubate
+    - step_down_to_bipap
+    - step_down_to_hfnc
+    - escalate_to_full_vent
+    - assign_rt_attention
+    - enforce_vap_bundle
+    - respond_to_alarm
+    - suppress_alarm
+    - hold_and_monitor
+    - ethical_triage_select
+
+# Observation space
+observation_space:
+  type: structured
+  description: "Per-step observation of full ward state"
+  fields:
+    - name: shift_hour
+      type: integer
+      range: "0–12"
+    - name: available_ventilators
+      type: integer
+      range: "0–8"
+    - name: available_bipap
+      type: integer
+      range: "0–2"
+    - name: available_hfnc
+      type: integer
+      range: "0–3"
+    - name: available_rts
+      type: integer
+      range: "0–3"
+    - name: patients
+      type: list
+      description: "List of PatientObservation objects, one per patient"
+    - name: active_alarms
+      type: list
+      description: "Current alarm feed — mix of real and false positive alarms"
+    - name: incoming_patients
+      type: list
+      description: "Announced incoming patients with ETA in hours"
+    - name: handover_degraded
+      type: boolean
+      description: "True during hour 6 when observation quality is reduced"
+    - name: triage_decision_required
+      type: object
+      nullable: true
+      description: "Present only when ethical triage decision is required"
+
+# Inference requirements
+inference:
+  max_runtime_minutes: 20
+  entry_point: "inference.py"
+  llm_client: "openai"

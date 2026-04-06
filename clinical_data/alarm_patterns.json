@@ -1,0 +1,19 @@
+{
+  "description": "False positive alarm pattern library for alarm fatigue simulation",
+  "false_positive_rate": 0.87,
+  "alarm_types": [
+    {"id": "spo2_low",       "name": "SpO2 below threshold",       "real_trigger": "spo2 < 88",    "false_positive_cause": "probe displacement"},
+    {"id": "hr_high",        "name": "Heart rate high",            "real_trigger": "hr > 130",     "false_positive_cause": "patient movement"},
+    {"id": "rr_high",        "name": "Respiratory rate high",      "real_trigger": "rr > 30",      "false_positive_cause": "coughing episode"},
+    {"id": "peak_pressure",  "name": "Peak inspiratory pressure",  "real_trigger": "pip > 40",     "false_positive_cause": "secretion buildup"},
+    {"id": "low_tidal_vol",  "name": "Low tidal volume",          "real_trigger": "tv < 5ml/kg",  "false_positive_cause": "patient-vent asynchrony"},
+    {"id": "apnea",          "name": "Apnea alarm",               "real_trigger": "no breath 20s","false_positive_cause": "ventilator reboot"},
+    {"id": "battery",        "name": "Battery/power alarm",       "real_trigger": "power failure", "false_positive_cause": "cable wiggle"}
+  ],
+  "cry_wolf_pattern": {
+    "description": "Patient generating 3+ false alarms in an hour has 95% chance next alarm is also false",
+    "consecutive_false_threshold": 3,
+    "subsequent_false_positive_rate": 0.95
+  },
+  "alarms_per_patient_per_hour_range": [2, 5]
+}

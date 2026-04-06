@@ -1,0 +1,11 @@
+{
+  "rsbi_threshold": 105,
+  "pf_ratio_threshold": 200,
+  "rass_min": -2,
+  "rass_max": 0,
+  "hemodynamic_stability_required": true,
+  "fio2_max_for_sbt": 0.5,
+  "peep_max_for_sbt": 8,
+  "sbt_duration_hours": 2,
+  "description": "American College of Chest Physicians weaning readiness criteria"
+}
