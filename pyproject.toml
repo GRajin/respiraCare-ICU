@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "respiraCare-icu"
+version = "1.0.0"
+description = "OpenEnv environment: ICU ward-level respiratory management simulation"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi==0.115.5",
+    "uvicorn[standard]==0.32.0",
+    "pydantic==2.9.2",
+    "openai>=2.7.2",
+    "numpy==2.1.3",
+    "httpx==0.27.2",
+    "pytest==8.3.3",
+    "python-multipart==0.0.12",
+    "openenv-core>=0.2.0",
+]
+
+[project.urls]
+"Homepage" = "https://huggingface.co/spaces/RajinG2402/respiraCare-ICU"
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "server*"]
