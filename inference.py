@@ -149,6 +149,8 @@ class EnvClient:
             json={"actions": actions},
             headers={"X-Session-ID": self.session_id},
         )
+        if r.status_code == 422:
+            print(f"[DEBUG] 422 response body: {r.text}", flush=True)
         r.raise_for_status()
         return r.json()
 
@@ -266,12 +268,58 @@ def parse_actions(raw: str, patient_ids: List[str]) -> List[Dict]:
         if pid not in patient_ids or pid in seen_pids:
             continue
         action_type = act.get("action_type", "hold_and_monitor")
+        # Normalise — strip spaces, lowercase
+        action_type = str(action_type).strip().lower().replace(" ", "_")
+
+        # Alias map — LLM commonly uses shortened names
+        aliases = {
+            "assign_rt":            "assign_rt_attention",
+            "rt_attention":         "assign_rt_attention",
+            "assign_rt_attention":  "assign_rt_attention",
+            "sbt":                  "attempt_sbt",
+            "sbtrial":              "attempt_sbt",
+            "sbt_trial":            "attempt_sbt",
+            "start_sbt":            "attempt_sbt",
+            "vap_bundle":           "enforce_vap_bundle",
+            "enforce_bundle":       "enforce_vap_bundle",
+            "vap_prevention":       "enforce_vap_bundle",
+            "filter_alarms":        "suppress_alarm",
+            "suppress_alarms":      "suppress_alarm",
+            "dismiss_alarm":        "suppress_alarm",
+            "ignore_alarm":         "suppress_alarm",
+            "alarm_suppress":       "suppress_alarm",
+            "address_alarm":        "respond_to_alarm",
+            "alarm_respond":        "respond_to_alarm",
+            "escalate_bipap":       "escalate_to_full_vent",
+            "escalate_to_vent":     "escalate_to_full_vent",
+            "reintubate":           "escalate_to_full_vent",
+            "intubate":             "escalate_to_full_vent",
+            "step_down":            "step_down_to_bipap",
+            "stepdown_bipap":       "step_down_to_bipap",
+            "stepdown_hfnc":        "step_down_to_hfnc",
+            "triage_select":        "ethical_triage_select",
+            "triage":               "ethical_triage_select",
+            "monitor":              "hold_and_monitor",
+            "observe":              "hold_and_monitor",
+            "wait":                 "hold_and_monitor",
+        }
+
+        action_type = aliases.get(action_type, action_type)
+
         if action_type not in valid_action_types:
+            print(f"[DEBUG] Invalid action_type '{action_type}' — defaulting to hold_and_monitor", flush=True)
             action_type = "hold_and_monitor"
+        
+        try:
+            raw_priority = act.get("priority", 2)
+            priority = max(1, min(3, int(float(str(raw_priority).strip()))))
+        except (ValueError, TypeError):
+            priority = 2
+
         cleaned.append({
-            "patient_id":               pid,
-            "action_type":              action_type,
-            "priority":                 int(act.get("priority", 2)),
+            "patient_id":                pid,
+            "action_type":               action_type,
+            "priority":                  2,
             "ethical_triage_patient_id": act.get("ethical_triage_patient_id"),
         })
         seen_pids.add(pid)
@@ -597,6 +645,11 @@ def run_task(
                 # --- Parse actions ---
                 actions = parse_actions(raw_response, patient_ids)
 
+                # --- Debug: print actions being sent ---
+                print(f"[DEBUG] Sending {len(actions)} actions:", flush=True)
+                for a in actions[:3]:
+                    print(f"  {a}", flush=True)
+
                 # --- Step environment ---
                 step_result = env_client.step(actions)
                 reward      = step_result.get("reward", 0.0)
@@ -604,10 +657,12 @@ def run_task(
                 observation = step_result.get("observation", observation)
 
                 # Update patient IDs (some may have been discharged)
-                patient_ids = [
+                new_ids = [
                     p["patient_id"]
                     for p in observation.get("patients", [])
                 ]
+                if new_ids:
+                    patient_ids = new_ids
 
                 # Build action summary for log
                 action_summary = ",".join(
@@ -621,6 +676,18 @@ def run_task(
                 done        = False
                 action_summary = "error"
                 print(f"[DEBUG] Step {step} error: {e}", flush=True)
+
+                # On 422 — re-fetch current observation to get fresh patient IDs
+                if "422" in str(e):
+                    try:
+                        print(f"[DEBUG] 422 detected — re-fetching state to refresh patient IDs", flush=True)
+                        current_state = env_client.state()
+                        fresh_patients = current_state.get("patients", [])
+                        if fresh_patients:
+                            patient_ids = [p["patient_id"] for p in fresh_patients]
+                            print(f"[DEBUG] Refreshed patient IDs: {patient_ids}", flush=True)
+                    except Exception as e2:
+                        print(f"[DEBUG] State refresh failed: {e2}", flush=True)
 
             rewards.append(reward)
             steps_taken = step

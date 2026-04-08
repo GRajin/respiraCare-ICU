@@ -201,9 +201,10 @@ class WardStateManager:
                     # Use available_rts from ward resources
                     pass   # RT tracking handled below
 
+                rt_crisis_hour = 11
                 available_rts = (
                     config.WARD_RESPIRATORY_THERAPISTS
-                    if self.current_hour < config.TASK3_CRISIS_SCHEDULE.get(11, 999)
+                    if self.current_hour < rt_crisis_hour
                     else config.WARD_RESPIRATORY_THERAPISTS - 1
                 )
                 if self._rts_used_this_step >= available_rts:
