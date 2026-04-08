@@ -1,3 +1,12 @@
+---
+title: RespiraCare-ICU
+emoji: 🫁
+colorFrom: blue
+colorTo: teal
+sdk: docker
+pinned: false
+---
+
 # RespiraCare-ICU
 
 **OpenEnv Environment — Meta × HuggingFace × PyTorch Hackathon**
