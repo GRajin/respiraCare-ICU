@@ -95,35 +95,8 @@ SEVERITY_BANDS = {
 # =============================================================================
 
 TASK_DISTRIBUTIONS = {
-    1: [
-        # 5 patients covering all 3 readiness categories
-        # 2 clearly NOT_READY, 2 READY_FOR_SBT, 1 READY_TO_EXTUBATE
-        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
-        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
-         "force_vitals": {"rsbi": 122.0, "pf_ratio": 175.0}},   # NOT_READY
-        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
-         "force_vitals": {"rsbi": 78.0,  "pf_ratio": 255.0, "rass": -1.0}},   # READY_FOR_SBT
-        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
-         "force_vitals": {"rsbi": 62.0,  "pf_ratio": 300.0, "rass": -1.0}},   # READY_FOR_SBT
-        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
-         "force_vitals": {"rsbi": 55.0,  "pf_ratio": 330.0, "rass":  0.0},
-         "sbt_passed": True},  # READY_TO_EXTUBATE
-    ],
-    2: [
-        # 10 patients — mixed, with trauma incoming at hour 3 needing 3 vents
-        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE},
-        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
-        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
-        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
-        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
-        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
-         "force_vitals": {"rsbi": 88.0, "pf_ratio": 235.0}},    # Borderline — SBT candidate
-        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
-        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
-        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP},
-        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
-         "support": SupportLevel.BIPAP},
-    ],
+    1: None,   # Task 1 uses _get_task1_distribution(seed) — see generate_ward()
+    2: None,  # Task 2 uses _get_task2_distribution(seed) — see generate_ward()
     3: [
         # 12 patients — full ward, all 5 problems active
         # Structured so crises at hours 3,5,6,7,9,10,11 are meaningful
@@ -147,6 +120,216 @@ TASK_DISTRIBUTIONS = {
     ],
 }
 
+# Six different Task 1 configurations — rotated by seed.
+# Each covers all 3 readiness categories but with different
+# distributions and vital values so null-agent scores vary.
+_TASK1_CONFIGS = [
+    # Config 0: 2 NOT_READY, 2 READY_FOR_SBT, 1 READY_TO_EXTUBATE
+    [
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 122.0, "pf_ratio": 175.0, "rass": -1.5}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 78.0,  "pf_ratio": 255.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 62.0,  "pf_ratio": 300.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 55.0,  "pf_ratio": 330.0, "rass":  0.0},
+         "sbt_passed": True},
+    ],
+    # Config 1: 1 NOT_READY, 3 READY_FOR_SBT, 1 READY_TO_EXTUBATE
+    [
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE,
+         "force_vitals": {"rsbi": 145.0, "pf_ratio": 130.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 88.0,  "pf_ratio": 215.0, "rass": -2.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 72.0,  "pf_ratio": 270.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 65.0,  "pf_ratio": 290.0, "rass":  0.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 50.0,  "pf_ratio": 350.0, "rass":  0.0},
+         "sbt_passed": True},
+    ],
+    # Config 2: 3 NOT_READY, 1 READY_FOR_SBT, 1 READY_TO_EXTUBATE
+    [
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 118.0, "pf_ratio": 185.0, "rass": -3.0}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 110.0, "pf_ratio": 195.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 80.0,  "pf_ratio": 225.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 58.0,  "pf_ratio": 320.0, "rass":  0.0},
+         "sbt_passed": True},
+    ],
+    # Config 3: 2 NOT_READY, 1 READY_FOR_SBT, 2 READY_TO_EXTUBATE
+    [
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 125.0, "pf_ratio": 170.0, "rass": -2.5}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 70.0,  "pf_ratio": 260.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 60.0,  "pf_ratio": 310.0, "rass":  0.0},
+         "sbt_passed": True},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 52.0,  "pf_ratio": 340.0, "rass":  0.0},
+         "sbt_passed": True},
+    ],
+    # Config 4: 1 NOT_READY, 2 READY_FOR_SBT, 2 READY_TO_EXTUBATE
+    [
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE,
+         "force_vitals": {"rsbi": 155.0, "pf_ratio": 120.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 85.0,  "pf_ratio": 230.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 68.0,  "pf_ratio": 280.0, "rass":  0.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 57.0,  "pf_ratio": 315.0, "rass":  0.0},
+         "sbt_passed": True},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE,
+         "force_vitals": {"rsbi": 48.0,  "pf_ratio": 360.0, "rass":  0.0},
+         "sbt_passed": True},
+    ],
+    # Config 5: 3 NOT_READY, 2 READY_FOR_SBT, 0 READY_TO_EXTUBATE
+    [
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 130.0, "pf_ratio": 165.0, "rass": -1.0}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 115.0, "pf_ratio": 190.0, "rass": -2.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 75.0,  "pf_ratio": 245.0, "rass": -1.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 66.0,  "pf_ratio": 275.0, "rass":  0.0}},
+    ],
+]
+
+def _get_task1_distribution(seed: int) -> list:
+    """
+    Select a Task 1 patient configuration based on seed.
+    Rotates through 6 configs — different seeds give different
+    readiness distributions, ensuring grader scores vary.
+    """
+    config_index = seed % len(_TASK1_CONFIGS)
+    return _TASK1_CONFIGS[config_index]
+
+_TASK2_CONFIGS = [
+    # Config 0: 2 ready to extubate, 1 VAP, 2 unstable — moderate pressure
+    [
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 88.0, "pf_ratio": 235.0}},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP,
+         "force_vitals": {"vap_risk": 0.55}},
+        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
+         "support": SupportLevel.BIPAP},
+    ],
+    # Config 1: 1 ready to extubate, high VAP risk across multiple patients
+    [
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 92.0, "pf_ratio": 210.0}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.50}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.45}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 75.0, "pf_ratio": 260.0}},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP,
+         "force_vitals": {"vap_risk": 0.62}},
+        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
+         "support": SupportLevel.HFNC},
+    ],
+    # Config 2: 3 ready to extubate — equipment pressure is manageable
+    [
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 70.0, "pf_ratio": 270.0}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.40}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP,
+         "force_vitals": {"vap_risk": 0.48}},
+        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
+         "support": SupportLevel.BIPAP},
+    ],
+    # Config 3: 0 ready to extubate — tight equipment, high VAP burden
+    [
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 98.0, "pf_ratio": 205.0}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.58}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.52}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 85.0, "pf_ratio": 225.0}},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP,
+         "force_vitals": {"vap_risk": 0.65}},
+        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
+         "support": SupportLevel.BIPAP},
+    ],
+    # Config 4: 1 ready, mixed VAP risks, 1 unstable
+    [
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"rsbi": 80.0, "pf_ratio": 240.0}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.35}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.60}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.LOW,    "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP,
+         "force_vitals": {"vap_risk": 0.42}},
+        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
+         "support": SupportLevel.HFNC},
+    ],
+    # Config 5: 2 ready, very high VAP risk, 3 unstable
+    [
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.LOW,    "force_state": PatientState.READY_TO_EXTUBATE, "sbt_passed": True},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.68}},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE,
+         "force_vitals": {"vap_risk": 0.55}},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.HIGH,   "force_state": PatientState.INTUBATED_UNSTABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_STABLE},
+        {"severity": Severity.MEDIUM, "force_state": PatientState.INTUBATED_WITH_VAP,
+         "force_vitals": {"vap_risk": 0.60}},
+        {"severity": Severity.LOW,    "force_state": PatientState.EXTUBATED,
+         "support": SupportLevel.BIPAP},
+    ],
+]
+
+
+def _get_task2_distribution(seed: int) -> list:
+    """Select a Task 2 configuration based on seed. Rotates through 6 configs."""
+    config_index = seed % len(_TASK2_CONFIGS)
+    return _TASK2_CONFIGS[config_index]
 
 # =============================================================================
 # CORE GENERATOR FUNCTIONS
@@ -252,7 +435,6 @@ def generate_patient(
 
     return patient
 
-
 def generate_ward(task_id: int, seed: int) -> List[PatientStateMachine]:
     """
     Generate the full list of patients for a given task and seed.
@@ -270,7 +452,14 @@ def generate_ward(task_id: int, seed: int) -> List[PatientStateMachine]:
     if task_id not in TASK_DISTRIBUTIONS:
         raise ValueError(f"Unknown task_id: {task_id}. Must be 1, 2, or 3.")
 
-    distribution = TASK_DISTRIBUTIONS[task_id]
+    # Task 1 uses seed-dependent distribution for score variability
+    if task_id == 1:
+        distribution = _get_task1_distribution(seed)
+    elif task_id == 2:
+        distribution = _get_task2_distribution(seed)
+    else:
+        distribution = TASK_DISTRIBUTIONS[task_id]
+
     patients: List[PatientStateMachine] = []
 
     # Use numpy to derive per-patient seeds from the master seed

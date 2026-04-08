@@ -148,6 +148,7 @@ class Episode:
         self._start_time: float = 0.0
         self._final_adjustment: float = 0.0
         self._final_adjustment_desc: str = ""
+        self.initial_observation = None
 
     # =========================================================================
     # RESET
@@ -172,6 +173,9 @@ class Episode:
 
         # Delegate to ward — returns initial Observation
         initial_obs = self.ward.reset(task_id=task_id, seed=seed)
+
+        # Store initial observation for graders — patient states change after step
+        self.initial_observation = initial_obs
 
         return ResetResponse(
             session_id=self.ward.episode_id,
