@@ -22,7 +22,7 @@ tags:
   - alarm-fatigue
   - ethical-triage
 
-hf_space_url: "https://huggingface.co/spaces/RajinG2402/respiraCare-ICU"
+hf_space_url: "https://RajinG2402-respiraCare-ICU.hf.space"
 hf_space_sdk: docker
 
 # Environment variables required to run inference.py
