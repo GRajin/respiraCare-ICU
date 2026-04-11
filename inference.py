@@ -35,8 +35,11 @@ from openai import OpenAI
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN     = os.getenv("HF_TOKEN",     "")
+HF_TOKEN     = os.getenv("HF_TOKEN")
 ENV_URL      = os.getenv("ENV_URL",      "http://localhost:7860")
+
+if HF_TOKEN is None:
+    raise ValueError("HF_TOKEN environment variable is required")
 
 # =============================================================================
 # TASK CONFIGURATION
@@ -88,7 +91,7 @@ def log_step(
     # Truncate action summary to keep line readable
     action_summary = action[:80].replace("\n", " ")
     print(
-        f"[STEP] step={step} action={action_summary!r} "
+        f"[STEP] step={step} action={action_summary} "
         f"reward={reward:.2f} done={done_val} error={error_val}",
         flush=True,
     )
@@ -103,7 +106,7 @@ def log_end(
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
         f"[END] success={str(success).lower()} steps={steps} "
-        f"score={score:.3f} rewards={rewards_str}",
+        f"rewards={rewards_str}",
         flush=True,
     )
 
@@ -150,7 +153,7 @@ class EnvClient:
             headers={"X-Session-ID": self.session_id},
         )
         if r.status_code == 422:
-            print(f"[DEBUG] 422 response body: {r.text}", flush=True)
+            print(f"[DEBUG] 422 response body: {r.text}", file=sys.stderr, flush=True)
         r.raise_for_status()
         return r.json()
 
@@ -176,7 +179,7 @@ class EnvClient:
 
 def make_llm_client() -> OpenAI:
     return OpenAI(
-        api_key  = HF_TOKEN or "dummy",
+        api_key  = HF_TOKEN,
         base_url = API_BASE_URL,
     )
 
@@ -205,7 +208,7 @@ def call_llm(
         )
         return (completion.choices[0].message.content or "").strip()
     except Exception as exc:
-        print(f"[DEBUG] LLM call failed: {exc}", flush=True)
+        print(f"[DEBUG] LLM call failed: {exc}", file=sys.stderr, flush=True)
         return ""
 
 
@@ -240,13 +243,13 @@ def parse_actions(raw: str, patient_ids: List[str]) -> List[Dict]:
     start = text.find("[")
     end   = text.rfind("]")
     if start == -1 or end == -1:
-        print(f"[DEBUG] No JSON array found in LLM response.", flush=True)
+        print(f"[DEBUG] No JSON array found in LLM response.", file=sys.stderr, flush=True)
         return fallback
 
     try:
         actions = json.loads(text[start:end+1])
     except json.JSONDecodeError as e:
-        print(f"[DEBUG] JSON parse error: {e}", flush=True)
+        print(f"[DEBUG] JSON parse error: {e}", file=sys.stderr, flush=True)
         return fallback
 
     # Validate and clean each action
@@ -307,7 +310,7 @@ def parse_actions(raw: str, patient_ids: List[str]) -> List[Dict]:
         action_type = aliases.get(action_type, action_type)
 
         if action_type not in valid_action_types:
-            print(f"[DEBUG] Invalid action_type '{action_type}' — defaulting to hold_and_monitor", flush=True)
+            print(f"[DEBUG] Invalid action_type '{action_type}' — defaulting to hold_and_monitor", file=sys.stderr, flush=True)
             action_type = "hold_and_monitor"
         
         try:
@@ -319,7 +322,7 @@ def parse_actions(raw: str, patient_ids: List[str]) -> List[Dict]:
         cleaned.append({
             "patient_id":                pid,
             "action_type":               action_type,
-            "priority":                  2,
+            "priority":                  priority,
             "ethical_triage_patient_id": act.get("ethical_triage_patient_id"),
         })
         seen_pids.add(pid)
@@ -582,7 +585,7 @@ def compute_score(
         return round(min(1.0, max(0.0, score)), 3)
 
     except Exception as e:
-        print(f"[DEBUG] Score computation failed: {e}", flush=True)
+        print(f"[DEBUG] Score computation failed: {e}", file=sys.stderr, flush=True)
         # Fallback: normalise cumulative reward
         total = sum(rewards)
         return round(min(1.0, max(0.0, (total + 2.0) / 5.0)), 3)
@@ -646,9 +649,9 @@ def run_task(
                 actions = parse_actions(raw_response, patient_ids)
 
                 # --- Debug: print actions being sent ---
-                print(f"[DEBUG] Sending {len(actions)} actions:", flush=True)
+                print(f"[DEBUG] Sending {len(actions)} actions:", file=sys.stderr, flush=True)
                 for a in actions[:3]:
-                    print(f"  {a}", flush=True)
+                    print(f"  {a}", file=sys.stderr, flush=True)
 
                 # --- Step environment ---
                 step_result = env_client.step(actions)
@@ -675,19 +678,19 @@ def run_task(
                 reward      = 0.0
                 done        = False
                 action_summary = "error"
-                print(f"[DEBUG] Step {step} error: {e}", flush=True)
+                print(f"[DEBUG] Step {step} error: {e}", file=sys.stderr, flush=True)
 
                 # On 422 — re-fetch current observation to get fresh patient IDs
                 if "422" in str(e):
                     try:
-                        print(f"[DEBUG] 422 detected — re-fetching state to refresh patient IDs", flush=True)
+                        print(f"[DEBUG] 422 detected — re-fetching state to refresh patient IDs", file=sys.stderr, flush=True)
                         current_state = env_client.state()
                         fresh_patients = current_state.get("patients", [])
                         if fresh_patients:
                             patient_ids = [p["patient_id"] for p in fresh_patients]
-                            print(f"[DEBUG] Refreshed patient IDs: {patient_ids}", flush=True)
+                            print(f"[DEBUG] Refreshed patient IDs: {patient_ids}", file=sys.stderr, flush=True)
                     except Exception as e2:
-                        print(f"[DEBUG] State refresh failed: {e2}", flush=True)
+                        print(f"[DEBUG] State refresh failed: {e2}", file=sys.stderr, flush=True)
 
             rewards.append(reward)
             steps_taken = step
@@ -708,7 +711,7 @@ def run_task(
         success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:
-        print(f"[DEBUG] Task {task_id} failed: {e}", flush=True)
+        print(f"[DEBUG] Task {task_id} failed: {e}", file=sys.stderr, flush=True)
         score   = 0.0
         success = False
 
@@ -727,10 +730,10 @@ def run_task(
 # =============================================================================
 
 def main() -> None:
-    print(f"[DEBUG] ENV_URL={ENV_URL}", flush=True)
-    print(f"[DEBUG] API_BASE_URL={API_BASE_URL}", flush=True)
-    print(f"[DEBUG] MODEL_NAME={MODEL_NAME}", flush=True)
-    print(f"[DEBUG] HF_TOKEN={'set' if HF_TOKEN else 'NOT SET'}", flush=True)
+    print(f"[DEBUG] ENV_URL={ENV_URL}", file=sys.stderr, flush=True)
+    print(f"[DEBUG] API_BASE_URL={API_BASE_URL}", file=sys.stderr, flush=True)
+    print(f"[DEBUG] MODEL_NAME={MODEL_NAME}", file=sys.stderr, flush=True)
+    print(f"[DEBUG] HF_TOKEN={'set' if HF_TOKEN else 'NOT SET'}", file=sys.stderr, flush=True)
 
     # --- Check environment is reachable ---
     env_client = EnvClient(base_url=ENV_URL)
@@ -738,11 +741,11 @@ def main() -> None:
         print(
             f"[ERROR] Cannot reach environment at {ENV_URL}. "
             "Is the server running?",
-            flush=True,
+            file=sys.stderr, flush=True,
         )
         sys.exit(1)
 
-    print(f"[DEBUG] Environment reachable at {ENV_URL}", flush=True)
+    print(f"[DEBUG] Environment reachable at {ENV_URL}", file=sys.stderr, flush=True)
 
     # --- Build LLM client ---
     llm_client = make_llm_client()
@@ -754,7 +757,7 @@ def main() -> None:
     for task_cfg in TASKS:
         print(
             f"\n[DEBUG] Starting Task {task_cfg['task_id']}: {task_cfg['name']}",
-            flush=True,
+            file=sys.stderr, flush=True,
         )
         task_start = time.time()
 
@@ -769,18 +772,18 @@ def main() -> None:
         print(
             f"[DEBUG] Task {task_cfg['task_id']} completed in {elapsed:.1f}s "
             f"— score: {score:.3f}",
-            flush=True,
+            file=sys.stderr, flush=True,
         )
 
     # --- Final summary ---
     total_elapsed = time.time() - start_time
     avg_score = sum(scores) / len(scores) if scores else 0.0
 
-    print(f"\n[DEBUG] All tasks complete in {total_elapsed:.1f}s", flush=True)
-    print(f"Task 1 (Easy):   {scores[0]:.3f}", flush=True)
-    print(f"Task 2 (Medium): {scores[1]:.3f}", flush=True)
-    print(f"Task 3 (Hard):   {scores[2]:.3f}", flush=True)
-    print(f"Average:         {avg_score:.3f}", flush=True)
+    print(f"\n[DEBUG] All tasks complete in {total_elapsed:.1f}s", file=sys.stderr, flush=True)
+    print(f"Task 1 (Easy):   {scores[0]:.3f}", file=sys.stderr, flush=True)
+    print(f"Task 2 (Medium): {scores[1]:.3f}", file=sys.stderr, flush=True)
+    print(f"Task 3 (Hard):   {scores[2]:.3f}", file=sys.stderr, flush=True)
+    print(f"Average:         {avg_score:.3f}", file=sys.stderr, flush=True)
 
     env_client.close()
 
