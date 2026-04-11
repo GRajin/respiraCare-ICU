@@ -37,7 +37,7 @@ def grade(episode: Episode) -> Dict:
     """
     if not episode.history:
         return {
-            "score": 0.0,
+            "score": 0.0001,
             "component_scores": {},
             "details": "No steps recorded.",
         }
@@ -155,7 +155,7 @@ def _score_missed_opportunities(episode: Episode) -> float:
     # Count READY_TO_EXTUBATE patients in the initial observation
     initial_obs = episode.initial_observation
     if initial_obs is None:
-        return shortfall_score
+        return clamp_score(shortfall_score)
 
     n_ready_at_start = sum(
         1 for p in initial_obs.patients
@@ -263,7 +263,7 @@ def _score_alarm_response(episode: Episode) -> float:
     false_positives = alarm_stats["false_positives"]
 
     if total_real == 0:
-        return 1.0   # No real alarms — nothing to miss
+        return 0.9999   # No real alarms — nothing to miss
 
     # Sensitivity: fraction of real alarms caught
     sensitivity = true_positives / total_real

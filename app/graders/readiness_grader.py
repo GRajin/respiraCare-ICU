@@ -60,7 +60,7 @@ def grade(episode: Episode) -> Dict:
     """
     if not episode.history:
         return {
-            "score": 0.0,
+            "score": 0.0001,
             "per_patient": [],
             "correct_count": 0,
             "details": "No steps recorded — agent did not act.",
@@ -74,7 +74,7 @@ def grade(episode: Episode) -> Dict:
     initial_obs = episode.initial_observation
     if initial_obs is None:
         return {
-            "score": 0.0,
+            "score": 0.0001,
             "per_patient": [],
             "correct_count": 0,
             "details": "No initial observation stored — was reset() called?",

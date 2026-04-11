@@ -582,13 +582,16 @@ def compute_score(
         else:
             score = 0.0
 
-        return round(min(1.0, max(0.0, score)), 3)
+        # Clamp to strictly (0, 1) — submission rejects 0.0 and 1.0
+        EPS = 1e-4
+        return round(min(1.0 - EPS, max(EPS, score)), 4)
 
     except Exception as e:
         print(f"[DEBUG] Score computation failed: {e}", file=sys.stderr, flush=True)
         # Fallback: normalise cumulative reward
         total = sum(rewards)
-        return round(min(1.0, max(0.0, (total + 2.0) / 5.0)), 3)
+        EPS = 1e-4
+        return round(min(1.0 - EPS, max(EPS, (total + 2.0) / 5.0)), 4)
 
 
 # =============================================================================
@@ -712,7 +715,7 @@ def run_task(
 
     except Exception as e:
         print(f"[DEBUG] Task {task_id} failed: {e}", file=sys.stderr, flush=True)
-        score   = 0.0
+        score   = 0.0001
         success = False
 
     log_end(

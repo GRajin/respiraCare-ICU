@@ -353,5 +353,6 @@ def normalise_score(
 
 
 def clamp_score(score: float) -> float:
-    """Ensure a grader score stays in [0.0, 1.0]."""
-    return round(min(1.0, max(0.0, score)), 4)
+    """Ensure a grader score stays strictly in (0, 1) — exclusive of 0.0 and 1.0."""
+    EPS = 1e-4
+    return round(min(1.0 - EPS, max(EPS, score)), 4)

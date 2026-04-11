@@ -35,7 +35,7 @@ def grade(episode: Episode) -> Dict:
     """
     if not episode.history:
         return {
-            "score": 0.0,
+            "score": 0.0001,
             "component_scores": {},
             "details": "No steps recorded.",
         }
@@ -147,7 +147,7 @@ def _score_mortality_proxy(episode: Episode) -> float:
 
     patients = episode.ward.patients
     if not patients:
-        return 0.0
+        return 0.0001
 
     total = 0.0
     for patient in patients:
